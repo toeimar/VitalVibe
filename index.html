@@ -12,11 +12,11 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, addDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ========== CONFIG ==========
-const firebaseConfig = {
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
   apiKey: "AIzaSyA6pLMExFN2d7oVQKLldcB_ahB5-o4zw_E",
   authDomain: "vitalvibe-c0306.firebaseapp.com",
   projectId: "vitalvibe-c0306",
@@ -24,9 +24,9 @@ const firebaseConfig = {
   messagingSenderId: "18887442289",
   appId: "1:18887442289:web:655ebb50976c911fec80d0"
 };
-const GEMINI_KEY = "AIzaSyATERpNYLv7zCO6_x3yhzWMjtbWy7c4Wiw";
+const apiKey = "";
 const ADMIN_PIN = "kira5642";
-const APP_ID = "vitalvibe-live-v11";
+const APP_ID = typeof __app_id !== 'undefined' ? __app_id : "vitalvibe-live-v11";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -59,7 +59,7 @@ const resizeImage = (file, maxSize=600) => new Promise(resolve => {
 const analyzeFoodWithAI = async (base64Image) => {
   const prompt = `คุณคือนักโภชนาการ AI วิเคราะห์ภาพอาหารนี้และตอบกลับเป็น JSON format เท่านั้น ห้ามมี markdown:
 {"name":"ชื่อเมนูอาหาร","calories":300,"sugar":"ต่ำ/ปานกลาง/สูง","sodium":"ต่ำ/ปานกลาง/สูง","fat":"ต่ำ/ปานกลาง/สูง","advice":"คำแนะนำสั้นๆ"}`;
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
@@ -68,10 +68,13 @@ const analyzeFoodWithAI = async (base64Image) => {
     })
   });
   const data = await res.json();
-  return JSON.parse(data.candidates[0].content.parts[0].text);
+  let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  return JSON.parse(text);
 };
 
 // ========== STATE ==========
+// แก้ไข #1: เพิ่ม rewardsTab:'virtual' ให้มีค่าเริ่มต้นเสมอ
 let STATE = {
   user: null, missions: [], rewards: [], profiles: [], leaderboard: [],
   userProgress: [], stats: {water:0, steps:0}, logs: [],
@@ -81,22 +84,36 @@ let STATE = {
   editMode: false, editName: '', editAvatar: '',
   adminTab: 'users',
   addMissionForm: null, addRewardForm: null,
+  rewardsTab: 'virtual',  // ← FIX #1: ต้องมีค่าเริ่มต้น ไม่งั้น list กรองไม่ออก
 };
 let unsubscribers = [];
 
-// ========== INIT ==========
-signInAnonymously(auth);
-onAuthStateChanged(auth, async (firebaseUser) => {
-  if (!firebaseUser) return;
-  setupRealtimeListeners();
+// ========== INIT & AUTH ==========
+const initAuth = async () => {
   try {
-    const saved = localStorage.getItem('vv_uid_v10');
-    if (saved) {
-      const snap = await getDoc(doc(db,'artifacts',APP_ID,'public','data','profiles',saved));
-      if (snap.exists()) { STATE.user = snap.data(); render(); }
+    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+      await signInWithCustomToken(auth, __initial_auth_token);
+    } else {
+      await signInAnonymously(auth);
     }
-  } catch(e){}
-  render();
+  } catch (err) {
+    console.error("Auth init error:", err);
+  }
+};
+
+initAuth().then(() => {
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    if (!firebaseUser) return;
+    setupRealtimeListeners();
+    try {
+      const saved = localStorage.getItem('vv_uid_v10');
+      if (saved) {
+        const snap = await getDoc(doc(db,'artifacts',APP_ID,'public','data','profiles',saved));
+        if (snap.exists()) { STATE.user = snap.data(); render(); }
+      }
+    } catch(e){}
+    render();
+  });
 });
 
 function setupRealtimeListeners() {
@@ -109,7 +126,7 @@ function setupRealtimeListeners() {
        {title:'กินผักผลไม้ 5 สี',subtitle:'ทานผักผลไม้หลากหลาย',points:25,category:'หัวใจ',maxPerDay:3,expiresAt:''}
       ].forEach(m => addDoc(missionsRef, m));
     } else { STATE.missions = loaded; render(); }
-  }));
+  }, err => console.error(err)));
 
   const rewardsRef = collection(db,'artifacts',APP_ID,'public','data','rewards');
   unsubscribers.push(onSnapshot(rewardsRef, snap => {
@@ -122,7 +139,7 @@ function setupRealtimeListeners() {
        {title:'ตราสัญลักษณ์ VIP',points:1000,image:'👑',type:'virtual'}
       ].forEach(r => addDoc(rewardsRef, r));
     } else { STATE.rewards = loaded; render(); }
-  }));
+  }, err => console.error(err)));
 
   const profilesRef = collection(db,'artifacts',APP_ID,'public','data','profiles');
   unsubscribers.push(onSnapshot(profilesRef, snap => {
@@ -133,7 +150,7 @@ function setupRealtimeListeners() {
       if (updated) STATE.user = updated;
     }
     render();
-  }));
+  }, err => console.error(err)));
 }
 
 function setupUserListeners(uid) {
@@ -143,56 +160,64 @@ function setupUserListeners(uid) {
     if (snap.exists()) STATE.stats = snap.data();
     else { STATE.stats = {water:0,steps:0}; setDoc(statsRef,{water:0,steps:0}); }
     render();
-  }));
+  }, err => console.error(err)));
 
   const progressRef = collection(db,'artifacts',APP_ID,'public','data',`progress_${uid}`);
   unsubscribers.push(onSnapshot(progressRef, snap => {
     STATE.userProgress = snap.docs.map(d=>d.data());
     render();
-  }));
+  }, err => console.error(err)));
 
   const logsRef = collection(db,'artifacts',APP_ID,'public','data',`logs_${uid}`);
   unsubscribers.push(onSnapshot(logsRef, snap => {
     STATE.logs = snap.docs.map(d=>({id:d.id,...d.data()})).filter(l=>l.date===today).sort((a,b)=>b.timestamp-a.timestamp);
     render();
-  }));
+  }, err => console.error(err)));
 }
 
-// ========== AUTH ==========
+// ========== AUTH LOGIC ==========
 async function handleLogin(email, password) {
-  const eid = cleanEmail(email);
-  const authRef = doc(db,'artifacts',APP_ID,'public','data','auth',eid);
-  const snap = await getDoc(authRef);
-  if (!snap.exists()) { showToast('ไม่พบบัญชีนี้ กรุณาสมัครสมาชิก','error'); return; }
-  const authData = snap.data();
-  if (authData.password !== password) { showToast('รหัสผ่านไม่ถูกต้อง','error'); return; }
-  const pSnap = await getDoc(doc(db,'artifacts',APP_ID,'public','data','profiles',authData.uid));
-  if (pSnap.exists()) {
-    STATE.user = pSnap.data();
-    try { localStorage.setItem('vv_uid_v10', STATE.user.uid); } catch(e){}
-    if (STATE.user.role === 'user') setupUserListeners(STATE.user.uid);
-    showToast('เข้าสู่ระบบสำเร็จ! 🚀');
-    render();
+  try {
+    const eid = cleanEmail(email);
+    const authRef = doc(db,'artifacts',APP_ID,'public','data','auth',eid);
+    const snap = await getDoc(authRef);
+    if (!snap.exists()) { showToast('ไม่พบบัญชีนี้ กรุณาสมัครสมาชิก','error'); return; }
+    const authData = snap.data();
+    if (authData.password !== password) { showToast('รหัสผ่านไม่ถูกต้อง','error'); return; }
+    const pSnap = await getDoc(doc(db,'artifacts',APP_ID,'public','data','profiles',authData.uid));
+    if (pSnap.exists()) {
+      STATE.user = pSnap.data();
+      try { localStorage.setItem('vv_uid_v10', STATE.user.uid); } catch(e){}
+      if (STATE.user.role === 'user') setupUserListeners(STATE.user.uid);
+      showToast('เข้าสู่ระบบสำเร็จ! 🚀');
+      render();
+    }
+  } catch (error) {
+    showToast('ระบบเครือข่ายขัดข้อง กรุณาลองใหม่', 'error');
   }
 }
 
 async function handleRegister(email, password, name, isAdmin, adminPin) {
-  if (isAdmin && adminPin !== ADMIN_PIN) { showToast('รหัสลับแอดมินไม่ถูกต้อง!','error'); return; }
-  const eid = cleanEmail(email);
-  const authRef = doc(db,'artifacts',APP_ID,'public','data','auth',eid);
-  const snap = await getDoc(authRef);
-  if (snap.exists()) { showToast('อีเมลนี้ถูกใช้งานแล้ว','error'); return; }
-  const uid = 'USR_' + Date.now() + Math.random().toString(36).substring(2,8);
-  const role = isAdmin ? 'admin' : 'user';
-  const avatar = 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(name);
-  await setDoc(authRef, {email:eid, password, uid, role});
-  const profile = {uid, name, role, points:0, level:1, avatar};
-  await setDoc(doc(db,'artifacts',APP_ID,'public','data','profiles',uid), profile);
-  STATE.user = profile;
-  try { localStorage.setItem('vv_uid_v10', uid); } catch(e){}
-  if (role === 'user') setupUserListeners(uid);
-  showToast('สร้างบัญชีสำเร็จ! 🎉');
-  render();
+  try {
+    if (isAdmin && adminPin !== ADMIN_PIN) { showToast('รหัสลับแอดมินไม่ถูกต้อง!','error'); return; }
+    const eid = cleanEmail(email);
+    const authRef = doc(db,'artifacts',APP_ID,'public','data','auth',eid);
+    const snap = await getDoc(authRef);
+    if (snap.exists()) { showToast('อีเมลนี้ถูกใช้งานแล้ว','error'); return; }
+    const uid = 'USR_' + Date.now() + Math.random().toString(36).substring(2,8);
+    const role = isAdmin ? 'admin' : 'user';
+    const avatar = 'https://api.dicebear.com/7.x/notionists/svg?seed=' + encodeURIComponent(name);
+    await setDoc(authRef, {email:eid, password, uid, role});
+    const profile = {uid, name, role, points:0, level:1, avatar};
+    await setDoc(doc(db,'artifacts',APP_ID,'public','data','profiles',uid), profile);
+    STATE.user = profile;
+    try { localStorage.setItem('vv_uid_v10', uid); } catch(e){}
+    if (role === 'user') setupUserListeners(uid);
+    showToast('สร้างบัญชีสำเร็จ! 🎉');
+    render();
+  } catch (error) {
+    showToast('ระบบเครือข่ายขัดข้อง กรุณาลองใหม่', 'error');
+  }
 }
 
 function handleLogout() {
@@ -231,7 +256,7 @@ function showPrompt(title, desc, defaultVal, onConfirm) {
   document.getElementById('prompt-cancel').onclick = () => { el.style.display='none'; };
 }
 
-// ========== RENDER ==========
+// ========== RENDER MAIN ==========
 function render() {
   const root = document.getElementById('root');
   if (!root) return;
@@ -309,7 +334,7 @@ window.toggleAdminPin = () => {
   document.getElementById('admin-pin-wrap').style.display = show ? 'block' : 'none';
 };
 
-// ========== ADMIN ==========
+// ========== ADMIN SCREEN ==========
 function renderAdmin() {
   return `
   <div class="admin-wrap">
@@ -670,51 +695,53 @@ return `
       <button class="btn-edit" onclick="openEditProfile()">✏️ แก้ไขโปรไฟล์</button>
     </div>
 
-```
 ${STATE.editMode ? `
-<div class="edit-overlay">
-  <div class="edit-modal">
-    <button class="close-btn" onclick="closeEdit()">✕</button>
-    <h3 style="font-weight:900;font-size:24px;text-align:center;margin-bottom:24px">แก้ไขข้อมูล</h3>
-    <input type="file" id="avatar-file" accept="image/*" style="display:none" onchange="handleAvatarChange(event)"/>
-    <div class="avatar-edit-wrap" onclick="document.getElementById('avatar-file').click()">
-      <img id="edit-avatar-preview" src="${STATE.editAvatar||u.avatar}" class="avatar-lg" onerror="this.src='https://api.dicebear.com/7.x/notionists/svg?seed=default'"/>
-      <div class="avatar-overlay">📷</div>
+
+  <div class="edit-overlay">
+    <div class="edit-modal">
+      <button class="close-btn" onclick="closeEdit()">✕</button>
+      <h3 style="font-weight:900;font-size:24px;text-align:center;margin-bottom:24px">แก้ไขข้อมูล</h3>
+      <input type="file" id="avatar-file" accept="image/*" style="display:none" onchange="handleAvatarChange(event)"/>
+      <div class="avatar-edit-wrap" onclick="document.getElementById('avatar-file').click()">
+        <img id="edit-avatar-preview" src="${STATE.editAvatar||u.avatar}" class="avatar-lg" onerror="this.src='https://api.dicebear.com/7.x/notionists/svg?seed=default'"/>
+        <div class="avatar-overlay">📷</div>
+      </div>
+      <input class="input-field" id="edit-name-input" type="text" value="${STATE.editName||u.name}" placeholder="ชื่อแสดงผล"/>
+      <button class="btn-primary" onclick="saveProfile()">💾 บันทึก</button>
     </div>
-    <input class="input-field" id="edit-name-input" type="text" value="${STATE.editName||u.name}" placeholder="ชื่อแสดงผล"/>
-    <button class="btn-primary" onclick="saveProfile()">💾 บันทึก</button>
-  </div>
-</div>` : ''}
+  </div>` : ''}
 
-<div class="weekly-card">
-  <h3 style="font-weight:800;margin-bottom:16px">📊 สรุปรายสัปดาห์ (AI)</h3>
-  <div class="eval-row">
-    <div class="eval-item"><div style="font-size:32px">🍬</div><div style="font-weight:700">ลดหวาน</div><div class="stars">${'⭐'.repeat(4)}${'☆'.repeat(1)}</div></div>
-    <div class="eval-item"><div style="font-size:32px">🧂</div><div style="font-weight:700">ลดเค็ม</div><div class="stars">${'⭐'.repeat(5)}</div></div>
-    <div class="eval-item"><div style="font-size:32px">💧</div><div style="font-weight:700">ลดมัน</div><div class="stars">${'⭐'.repeat(3)}${'☆'.repeat(2)}</div></div>
+  <div class="weekly-card">
+    <h3 style="font-weight:800;margin-bottom:16px">📊 สรุปรายสัปดาห์ (AI)</h3>
+    <div class="eval-row">
+      <div class="eval-item"><div style="font-size:32px">🍬</div><div style="font-weight:700">ลดหวาน</div><div class="stars">${'⭐'.repeat(4)}${'☆'.repeat(1)}</div></div>
+      <div class="eval-item"><div style="font-size:32px">🧂</div><div style="font-weight:700">ลดเค็ม</div><div class="stars">${'⭐'.repeat(5)}</div></div>
+      <div class="eval-item"><div style="font-size:32px">💧</div><div style="font-weight:700">ลดมัน</div><div class="stars">${'⭐'.repeat(3)}${'☆'.repeat(2)}</div></div>
+    </div>
+    <div class="ai-advice" style="margin-top:16px">"สัปดาห์นี้ลดเค็มได้เยี่ยม! รักษาระดับนี้นะครับ 👏"</div>
   </div>
-  <div class="ai-advice" style="margin-top:16px">"สัปดาห์นี้ลดเค็มได้เยี่ยม! รักษาระดับนี้นะครับ 👏"</div>
-</div>
 
-<div class="badges-card">
-  <h3 style="font-weight:800;margin-bottom:16px">🏅 รางวัลความสำเร็จ</h3>
-  <div class="badges-row">
-    <div class="badge-item"><div class="badge-icon" style="background:#dbeafe">🛡️</div><div class="badge-name">นักลดเค็มมือโปร</div></div>
-    <div class="badge-item"><div class="badge-icon" style="background:#d1fae5">🏅</div><div class="badge-name">พิชิต 7 วัน</div></div>
-    <div class="badge-item locked"><div class="badge-icon" style="background:#f3f4f6">🏃</div><div class="badge-name">แสนก้าว</div></div>
+  <div class="badges-card">
+    <h3 style="font-weight:800;margin-bottom:16px">🏅 รางวัลความสำเร็จ</h3>
+    <div class="badges-row">
+      <div class="badge-item"><div class="badge-icon" style="background:#dbeafe">🛡️</div><div class="badge-name">นักลดเค็มมือโปร</div></div>
+      <div class="badge-item"><div class="badge-icon" style="background:#d1fae5">🏅</div><div class="badge-name">พิชิต 7 วัน</div></div>
+      <div class="badge-item locked"><div class="badge-icon" style="background:#f3f4f6">🏃</div><div class="badge-name">แสนก้าว</div></div>
+    </div>
   </div>
-</div>
 
-<button class="btn-rewards" onclick="STATE.showRewards=true;render()">🎁 ร้านค้าแลกของรางวัล</button>
+<button class="btn-rewards" onclick="STATE.showRewards=true;STATE.rewardsTab='virtual';render()">🎁 ร้านค้าแลกของรางวัล</button>
 <button class="btn-logout" onclick="handleLogout()">🚪 ออกจากระบบ</button>
-```
 
   </div>`;
 }
 
+// ========== FIX #2: renderRewardsPage แก้ class ของ tab ไม่ให้ชนกับ auth ==========
 function renderRewardsPage() {
+// FIX #1: ป้องกัน rewardsTab เป็น undefined
 const tab = STATE.rewardsTab || ‘virtual’;
-const list = STATE.rewards.filter(r=>r.type===tab);
+const list = STATE.rewards.filter(r => r.type === tab);
+
 return `
 
   <div style="height:100%;display:flex;flex-direction:column">
@@ -726,22 +753,35 @@ return `
       <div style="color:#888;font-weight:700;font-size:12px;text-transform:uppercase;margin-bottom:8px">คะแนนคงเหลือ</div>
       <div style="font-size:52px;font-weight:900;color:#111">🪙 ${(STATE.user.points||0).toLocaleString()}</div>
     </div>
-    <div style="display:flex;gap:4px;margin:16px;background:#f5f5f5;padding:4px;border-radius:14px">
-      <button class="tab-btn ${tab==='virtual'?'active':''}" onclick="STATE.rewardsTab='virtual';render()">ในเกม (Virtual)</button>
-      <button class="tab-btn ${tab==='physical'?'active':''}" onclick="STATE.rewardsTab='physical';render()">ของจริง (Physical)</button>
-    </div>
-    <div style="flex:1;overflow-y:auto;padding:0 16px 80px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start">
-      ${list.length===0 ? '<p class="empty-state" style="grid-column:1/-1">ยังไม่มีรางวัลหมวดนี้</p>' :
-        list.map(r=>`
+
+```
+<!-- FIX #2: เปลี่ยน class เป็น reward-tab-switch / reward-tab-btn ไม่ให้ชนกับ CSS ของ auth -->
+<div class="reward-tab-switch">
+  <button class="reward-tab-btn ${tab==='virtual'?'active':''}" onclick="STATE.rewardsTab='virtual';render()">ในเกม (Virtual)</button>
+  <button class="reward-tab-btn ${tab==='physical'?'active':''}" onclick="STATE.rewardsTab='physical';render()">ของจริง (Physical)</button>
+</div>
+
+<div style="flex:1;overflow-y:auto;padding:0 16px 80px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start;margin-top:4px">
+  ${list.length===0
+    ? '<p class="empty-state" style="grid-column:1/-1">ยังไม่มีรางวัลหมวดนี้</p>'
+    : list.map(r => {
+        // FIX #3: ใช้ data attribute แทนการ embed string ใน onclick ป้องกัน quote แตก
+        return `
         <div class="reward-big-card">
           <div style="font-size:52px;margin:8px 0">${r.image}</div>
           <div style="font-weight:800;font-size:13px;margin-bottom:auto">${r.title}</div>
-          <button class="redeem-btn" onclick="redeemReward('${r.id}','${r.title}','${r.image}',${r.points})">แลกเลย ${r.points.toLocaleString()}</button>
-        </div>`).join('')}
-    </div>
+          <button class="redeem-btn" data-id="${r.id}" data-pts="${r.points}" onclick="redeemRewardById(this)">
+            แลกเลย ${(r.points||0).toLocaleString()} pts
+          </button>
+        </div>`;
+      }).join('')}
+</div>
+```
+
   </div>`;
 }
 
+// ========== ACTIONS ==========
 function bindUserEvents() {}
 window.setTab = (tab) => { STATE.activeTab = tab; render(); };
 window.addWater = async () => {
@@ -822,15 +862,36 @@ await updateDoc(doc(db,‘artifacts’,APP_ID,‘public’,‘data’,‘profile
 STATE.editMode=false; showToast(‘อัปเดตโปรไฟล์แล้ว! 🌟’);
 };
 
-window.redeemReward = (id, title, image, points) => {
+// FIX #3: ฟังก์ชันใหม่อ่านค่าจาก data attribute แทนการส่ง string ผ่าน onclick โดยตรง
+window.redeemRewardById = (btn) => {
+const id = btn.dataset.id;
+const points = Number(btn.dataset.pts);
+// หา reward จาก STATE เพื่อดึงข้อมูลครบ
+const reward = STATE.rewards.find(r => r.id === id);
+if (!reward) { showToast(‘ไม่พบรางวัลนี้’,‘error’); return; }
+redeemReward(reward.id, reward.title, reward.image, reward.points);
+};
+
+// FIX #4: แยก redeemReward ออกมาเพื่อให้ success-modal แสดงได้หลัง render
+function redeemReward(id, title, image, points) {
 if ((STATE.user.points||0) < points) { showToast(‘คะแนนไม่พอ!’,‘error’); return; }
 showConfirm(`ยืนยันแลก "${title}" ด้วย ${points} แต้ม?`, async () => {
+try {
 await updateDoc(doc(db,‘artifacts’,APP_ID,‘public’,‘data’,‘profiles’,STATE.user.uid),{points:(STATE.user.points||0)-points});
-document.getElementById(‘success-modal’).style.display=‘flex’;
-document.getElementById(‘success-title’).textContent=`${image} ${title}`;
-STATE.showRewards=false;
+
+```
+  // FIX #4: อัปเดต points ใน STATE ก่อน แล้วค่อย render หน้า rewards ใหม่ (ไม่ปิดหน้าร้านค้า)
+  // success-modal อยู่นอก #root จึงไม่หายตอน render
+  const modal = document.getElementById('success-modal');
+  document.getElementById('success-title').textContent = `${image} ${title}`;
+  modal.style.display = 'flex';
+} catch (e) {
+  showToast('เกิดข้อผิดพลาดในการแลกรางวัล', 'error');
+}
+```
+
 });
-};
+}
 window.handleLogout = handleLogout;
 
 </script>
@@ -841,12 +902,12 @@ body{font-family:'Kanit',sans-serif;background:#1a1a2e;height:100vh;display:flex
 #root{width:100%;max-width:430px;height:100vh;background:white;position:relative;overflow:hidden;box-shadow:0 0 60px rgba(0,0,0,.5)}
 
 /* TOAST */
-#toast{display:none;position:absolute;top:40px;left:50%;transform:translateX(-50%);z-index:9999;width:90%;justify-content:center}
+#toast{display:none;position:fixed;top:40px;left:50%;transform:translateX(-50%);z-index:9999;width:90%;justify-content:center}
 .toast{background:#111;color:white;padding:12px 24px;border-radius:50px;font-weight:700;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
 .toast-error{background:#ef4444}
 
 /* DIALOGS */
-.dialog-overlay{display:none;position:absolute;inset:0;z-index:1000;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:24px}
+.dialog-overlay{display:none;position:fixed;inset:0;z-index:2100;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:24px}
 .dialog-box{background:white;border-radius:28px;padding:32px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .dialog-title{font-size:20px;font-weight:900;color:#111;margin-bottom:24px;line-height:1.4}
 .dialog-btns{display:flex;gap:12px}
@@ -994,7 +1055,7 @@ body{font-family:'Kanit',sans-serif;background:#1a1a2e;height:100vh;display:flex
 .profile-card{background:white;border-radius:28px;padding:28px;display:flex;flex-direction:column;align-items:center;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,.06)}
 .lv-badge{background:#d1fae5;color:#059669;font-weight:800;font-size:14px;padding:6px 20px;border-radius:50px;margin-top:8px;border:1px solid #a7f3d0}
 .btn-edit{margin-top:16px;background:#111;color:white;border:none;padding:12px 24px;border-radius:16px;font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px}
-.edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);z-index:50;display:flex;align-items:center;justify-content:center;padding:24px}
+.edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);z-index:5000;display:flex;align-items:center;justify-content:center;padding:24px}
 .edit-modal{background:white;border-radius:32px;padding:32px;width:100%;max-width:340px;position:relative}
 .close-btn{position:absolute;top:16px;right:16px;background:#f3f4f6;border:none;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer}
 .avatar-edit-wrap{position:relative;width:120px;height:120px;margin:0 auto 20px;cursor:pointer;border-radius:50%;overflow:visible}
@@ -1015,12 +1076,17 @@ body{font-family:'Kanit',sans-serif;background:#1a1a2e;height:100vh;display:flex
 .btn-logout{width:100%;background:white;color:#ef4444;border:2px solid #fecaca;border-radius:24px;padding:16px;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:32px}
 .rewards-header{padding:48px 20px 16px;background:rgba(255,255,255,.97);backdrop-filter:blur(8px);border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px}
 .back-btn{background:#f3f4f6;border:none;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer}
-.reward-big-card{background:white;border-radius:24px;padding:16px;display:flex;flex-direction:column;align-items:center;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.06);min-height:180px}
+.reward-big-card{background:white;border-radius:24px;padding:16px;display:flex;flex-direction:column;align-items:center;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.06);min-height:180px;transition:0.2s}
 .redeem-btn{width:100%;margin-top:auto;padding:10px;border:none;border-radius:14px;font-family:inherit;font-weight:900;font-size:13px;cursor:pointer;background:linear-gradient(135deg,#FF7A00,#f97316);color:white;box-shadow:0 4px 10px rgba(249,115,22,.25)}
 .empty-state{text-align:center;color:#9ca3af;font-weight:600;padding:32px;background:white;border-radius:20px;border:2px dashed #e5e7eb}
 
+/* FIX #2: reward tab switch — class ใหม่ ไม่ชนกับ auth tab-btn */
+.reward-tab-switch{display:flex;gap:4px;margin:16px;background:#f5f5f5;padding:4px;border-radius:14px}
+.reward-tab-btn{flex:1;padding:12px;border:none;background:transparent;border-radius:12px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;color:#aaa;transition:.2s}
+.reward-tab-btn.active{background:white;color:#FF7A00;box-shadow:0 2px 10px rgba(0,0,0,.1)}
+
 /* SUCCESS MODAL */
-#success-modal{display:none;position:absolute;inset:0;z-index:200;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);justify-content:center;align-items:center;padding:24px}
+#success-modal{display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);justify-content:center;align-items:center;padding:24px}
 .success-box{background:white;border-radius:36px;padding:32px;width:100%;text-align:center;border:6px solid white;box-shadow:0 0 60px rgba(0,0,0,.4);position:relative;overflow:hidden}
 .success-confetti{position:absolute;font-size:80px;opacity:.08}
 
@@ -1067,7 +1133,7 @@ body{font-family:'Kanit',sans-serif;background:#1a1a2e;height:100vh;display:flex
   </div>
 </div>
 
-<!-- Success Modal -->
+<!-- Success Modal — อยู่นอก #root จึงไม่หายตอน render() -->
 
 <div id="success-modal">
   <div class="success-box">
@@ -1087,6 +1153,5 @@ body{font-family:'Kanit',sans-serif;background:#1a1a2e;height:100vh;display:flex
     <button onclick="document.getElementById('success-modal').style.display='none'" style="width:100%;background:#111;color:white;border:none;padding:16px;border-radius:20px;font-family:inherit;font-size:16px;font-weight:900;cursor:pointer">รับทราบ ปิดหน้าต่าง</button>
   </div>
 </div>
-
 </body>
 </html>
