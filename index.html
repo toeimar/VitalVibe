@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -11,20 +12,20 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700;900&display=swap" rel="stylesheet">
     
-    <!-- FontAwesome (ทดแทน Lucide React สำหรับรันบน HTML ธรรมดา) -->
+    <!-- FontAwesome (ทดแทนระบบไอคอนเพื่อให้รันในไฟล์เดียวได้ชัวร์ 100%) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- React & ReactDOM (UMD - รองรับการรันตรงจากไฟล์) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- React & ReactDOM (UMD) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
     <!-- Babel for JSX -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.3/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Firebase (V8 Compat - ไม่ติดปัญหา CORS บน local file) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-app.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-auth.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-firestore.min.js"></script>
+    <!-- Firebase V8 (ทำงานผ่าน Local File ได้ดีที่สุด) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <style>
         body { font-family: 'Kanit', sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -49,7 +50,7 @@
         const { useState, useEffect, useRef } = React;
 
         // ------------------------------------------------------------------
-        // 1. Icon Proxy (สร้างไอคอนทดแทน Lucide เพื่อให้รันได้ 100%)
+        // 1. Icon Setup (ใช้ FontAwesome)
         // ------------------------------------------------------------------
         const IconWrapper = ({ faClass, size = 24, className = '', color }) => (
             <i className={`fas ${faClass} ${className}`} style={{ fontSize: size, width: size, height: size, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color }}></i>
@@ -89,9 +90,8 @@
         const Calendar = (p) => <IconWrapper faClass="fa-calendar-alt" {...p} />;
         const Repeat = (p) => <IconWrapper faClass="fa-redo" {...p} />;
 
-
         // ------------------------------------------------------------------
-        // 2. Firebase Init (V8)
+        // 2. Firebase Init 
         // ------------------------------------------------------------------
         const firebaseConfig = {
             apiKey: "AIzaSyA6pLMExFN2d7oVQKLldcB_ahB5-o4zw_E",
@@ -102,12 +102,14 @@
             appId: "1:18887442289:web:0b917a9e043b44b4ec80d0",
             measurementId: "G-G3H4NSH3FX"
         };
-        const app = firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const auth = firebase.auth();
         const db = firebase.firestore();
 
         // ------------------------------------------------------------------
-        // 3. Polyfill: แปลงคำสั่ง V9 ให้ทำงานบน V8 ได้ทันที (โค้ดเดิมไม่ต้องแก้)
+        // 3. Polyfill: แปลงคำสั่งให้อ่านได้แบบ V9
         // ------------------------------------------------------------------
         const collection = (db, ...paths) => db.collection(paths.join('/'));
         const doc = (db, ...paths) => db.doc(paths.join('/'));
@@ -129,12 +131,10 @@
             }, errCb);
         };
         const signInAnonymously = async (auth) => await auth.signInAnonymously();
-        const signInWithCustomToken = async (auth, token) => await auth.signInWithCustomToken(token);
         const onAuthStateChanged = (auth, cb) => auth.onAuthStateChanged(cb);
 
-
         // ------------------------------------------------------------------
-        // 4. ตั้งค่าแอป และ API Key Gemini
+        // 4. Config & Services
         // ------------------------------------------------------------------
         const appId = 'vitalvibe-live-v11';
         const geminiApiKey = "AIzaSyDZBt86VWg_AuUZPbapbY5GyGa1YOJaZXU"; 
@@ -187,8 +187,15 @@
               })
             });
             const data = await response.json();
-            return JSON.parse(data.candidates[0].content.parts[0].text);
+            
+            if (!data.candidates || data.candidates.length === 0) throw new Error("No data");
+            
+            let textResult = data.candidates[0].content.parts[0].text;
+            textResult = textResult.replace(/```json/gi, '').replace(/```/g, '').trim();
+            
+            return JSON.parse(textResult);
           } catch (error) {
+            console.error(error);
             throw new Error("AI Analysis Failed");
           }
         };
@@ -198,14 +205,16 @@
           { title: 'เดิน 30 นาที', subtitle: 'เดินออกกำลังกายต่อเนื่อง 30 นาที', points: 30, category: 'ความดัน', maxPerDay: 1, expiresAt: '' },
           { title: 'กินผักผลไม้ 5 สี', subtitle: 'ทานผักและผลไม้ให้หลากหลาย', points: 25, category: 'หัวใจ', maxPerDay: 3, expiresAt: '' },
         ];
+        
+        // ลบรางวัลในเกมออก เหลือแต่แบบของจริง
         const DEFAULT_REWARDS = [
-          { title: 'คูปองตรวจสุขภาพ รพ.', points: 5000, image: '🎟️', type: 'physical' },
-          { title: 'ชุดของขวัญสุขภาพ', points: 3500, image: '🧺', type: 'physical' },
-          { title: 'แก้วน้ำเก็บอุณหภูมิ', points: 1500, image: '🥤', type: 'physical' },
+          { title: 'คูปองตรวจสุขภาพ รพ.', points: 5000, image: '🎟️' },
+          { title: 'ชุดของขวัญสุขภาพ', points: 3500, image: '🧺' },
+          { title: 'แก้วน้ำเก็บอุณหภูมิ', points: 1500, image: '🥤' },
         ];
 
         // ------------------------------------------------------------------
-        // 5. React Components (โค้ดดั้งเดิมของคุณ ทำงานได้ 100%)
+        // 5. App Components
         // ------------------------------------------------------------------
         function App() {
           const [firebaseReady, setFirebaseReady] = useState(false);
@@ -229,12 +238,14 @@
           useEffect(() => {
             const initAuth = async () => {
               try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-                else await signInAnonymously(auth);
+                await signInAnonymously(auth);
               } catch (err) { console.error("Firebase init:", err); }
             };
             initAuth();
-            const unsub = onAuthStateChanged(auth, (user) => { if(user) setFirebaseReady(true); });
+            
+            const unsub = onAuthStateChanged(auth, (user) => { 
+                if(user) setFirebaseReady(true); 
+            });
             return () => unsub();
           }, []);
 
@@ -246,14 +257,14 @@
               const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
               if (loaded.length === 0) DEFAULT_MISSIONS.forEach(m => addDoc(missionsRef, m));
               else setGlobalMissions(loaded);
-            });
+            }, e => console.error(e));
 
             const rewardsRef = collection(db, 'artifacts', appId, 'public', 'data', 'rewards');
             const unsubR = onSnapshot(rewardsRef, (snap) => {
               const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
               if (loaded.length === 0) DEFAULT_REWARDS.forEach(r => addDoc(rewardsRef, r));
               else setGlobalRewards(loaded);
-            });
+            }, e => console.error(e));
 
             const profilesRef = collection(db, 'artifacts', appId, 'public', 'data', 'profiles');
             const unsubP = onSnapshot(profilesRef, (snap) => {
@@ -276,7 +287,7 @@
                 const updated = loadedProfiles.find(u => u.uid === current.uid);
                 return updated || current;
               });
-            });
+            }, e => console.error(e));
 
             return () => { unsubM(); unsubR(); unsubP(); };
           }, [firebaseReady]);
@@ -286,7 +297,7 @@
             const progressRef = collection(db, 'artifacts', appId, 'public', 'data', `progress_${appUser.uid}`);
             const unsubProgress = onSnapshot(progressRef, (snapshot) => {
               setUserProgress(snapshot.docs.map(d => d.data()));
-            });
+            }, e => console.error(e));
             return () => unsubProgress();
           }, [appUser?.uid]);
 
@@ -299,6 +310,7 @@
             const eid = cleanEmail(email);
             const authRef = doc(db, 'artifacts', appId, 'public', 'data', 'auth', eid);
             const docSnap = await getDoc(authRef);
+            
             if (docSnap.exists()) { 
               showToast('อีเมลนี้ถูกใช้งานแล้ว กรุณาล็อคอิน', 'error');
               throw new Error('อีเมลนี้ถูกใช้งานแล้ว');
@@ -385,7 +397,7 @@
                 {toast && (
                   <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[999] animate-slide-down">
                     <div className={`px-6 py-3 rounded-full font-black shadow-2xl flex items-center gap-2 text-white tracking-wide border-2 ${toast.type === 'error' ? 'bg-red-500 border-red-400' : 'bg-gray-900 border-gray-700'}`}>
-                      {toast.type === 'error' ? <AlertCircle size={20}/> : <CheckCircle size={20}/>} {toast.message}
+                      {toast.type === 'error' ? <AlertCircle size={20}/> : <CheckCircle size={20}/>} <span className="ml-2">{toast.message}</span>
                     </div>
                   </div>
                 )}
@@ -427,6 +439,9 @@
           );
         }
 
+        // ==========================================
+        // UI Components: Auth
+        // ==========================================
         function AuthScreen({ onLogin, onRegister }) {
           const [isLogin, setIsLogin] = useState(true);
           const [isAdminLogin, setIsAdminLogin] = useState(false);
@@ -470,18 +485,18 @@
 
                   {!isLogin && (
                     <div className="relative animate-fade-in">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><User size={20} /></div>
                       <input type="text" placeholder="ชื่อที่ใช้แสดงผล" required value={name} onChange={e=>setName(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-[#FF7A00] rounded-2xl p-4 pl-12 text-gray-800 font-bold outline-none transition" />
                     </div>
                   )}
 
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><Mail size={20} /></div>
                     <input type="email" placeholder="อีเมล (E-mail)" required value={email} onChange={e=>setEmail(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-[#FF7A00] rounded-2xl p-4 pl-12 text-gray-800 font-bold outline-none transition" />
                   </div>
 
                   <div className="relative">
-                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><Key size={20} /></div>
                     <input type="password" placeholder="รหัสผ่าน (Password)" required minLength="6" value={password} onChange={e=>setPassword(e.target.value)} className="w-full bg-gray-50 border-2 border-transparent focus:border-[#FF7A00] rounded-2xl p-4 pl-12 text-gray-800 font-bold outline-none transition" />
                   </div>
 
@@ -494,7 +509,7 @@
 
                   {!isLogin && isAdminLogin && (
                     <div className="relative animate-fade-in pb-2">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-red-400" size={20} />
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-red-400"><Lock size={20} /></div>
                       <input type="password" placeholder="รหัสลับแอดมิน" required value={adminPin} onChange={e=>setAdminPin(e.target.value)} className="w-full bg-red-50 border-2 border-red-200 focus:border-red-500 rounded-2xl p-4 pl-12 text-red-800 font-black outline-none tracking-widest" />
                     </div>
                   )}
@@ -508,6 +523,9 @@
           );
         }
 
+        // ==========================================
+        // UI Components: Admin App 
+        // ==========================================
         function AdminApp({ missions, rewards, leaderboard, onLogout, db, appId, setConfirmDialog, setPromptDialog, showToast }) {
           const [activeTab, setActiveTab] = useState('users');
 
@@ -560,8 +578,8 @@
             <div className="animate-fade-in space-y-4">
               <h2 className="text-2xl font-black text-gray-800">จัดการผู้ใช้งาน</h2>
               <p className="text-gray-500 font-bold text-sm bg-blue-50 p-4 rounded-2xl border border-blue-100 shadow-sm leading-relaxed">
-                💡 กด <Eye size={14} className="inline text-blue-500"/> ดูข้อมูลสุขภาพ<br/>
-                💡 กด <Edit size={14} className="inline text-emerald-500"/> ปรับเพิ่มลดคะแนน
+                💡 กดไอคอน <span className="inline-block"><Eye size={14} className="text-blue-500"/></span> ดูข้อมูลสุขภาพ<br/>
+                💡 กดไอคอน <span className="inline-block"><Edit size={14} className="text-emerald-500"/></span> ปรับเพิ่มลดคะแนน
               </p>
               
               <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
@@ -717,14 +735,14 @@
                     <div>
                       <label className="text-[10px] font-black text-gray-500 uppercase ml-2">ทำได้กี่ครั้งต่อวัน?</label>
                       <div className="relative">
-                        <Repeat className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Repeat size={16} /></div>
                         <input type="number" min="1" value={form.maxPerDay} onChange={e=>setForm({...form, maxPerDay: Number(e.target.value)})} className="w-full border-2 border-gray-100 p-4 pl-10 rounded-xl bg-gray-50 font-bold outline-none" />
                       </div>
                     </div>
                     <div>
                       <label className="text-[10px] font-black text-gray-500 uppercase ml-2">วันหมดอายุ (ถ้ามี)</label>
                       <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Calendar size={16} /></div>
                         <input type="date" value={form.expiresAt} onChange={e=>setForm({...form, expiresAt: e.target.value})} className="w-full border-2 border-gray-100 p-4 pl-10 rounded-xl bg-gray-50 font-bold outline-none text-xs" />
                       </div>
                     </div>
@@ -754,14 +772,17 @@
           );
         }
 
+        // ==========================================
+        // ระบบของรางวัล (เหลือเฉพาะแลกของจริง)
+        // ==========================================
         function AdminRewards({ rewards, db, appId, setConfirmDialog, showToast }) {
           const [isAdding, setIsAdding] = useState(false);
-          const [form, setForm] = useState({ title: '', points: 500, image: '🎁', type: 'physical' });
+          const [form, setForm] = useState({ title: '', points: 500, image: '🎁' }); // เอา type ออก
 
           const handleSave = async () => {
             if (!form.title.trim()) return showToast('กรุณากรอกชื่อรางวัล', 'error');
             await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rewards'), form);
-            setIsAdding(false); setForm({ title: '', points: 500, image: '🎁', type: 'physical' });
+            setIsAdding(false); setForm({ title: '', points: 500, image: '🎁' });
             showToast('เพิ่มของรางวัลสำเร็จ');
           };
 
@@ -784,9 +805,6 @@
                   <div className="flex justify-between items-center"><h3 className="font-black text-lg text-gray-800">สร้างรางวัลใหม่</h3><button onClick={()=>setIsAdding(false)} className="bg-gray-100 p-2 rounded-full text-gray-500"><X size={16}/></button></div>
                   <input type="text" placeholder="ชื่อของรางวัล" value={form.title} onChange={e=>setForm({...form, title: e.target.value})} className="w-full border-2 border-gray-100 focus:border-orange-400 p-4 rounded-xl bg-gray-50 font-bold outline-none transition" />
                   <div className="flex gap-3">
-                    <select value={form.type} onChange={e=>setForm({...form, type: e.target.value})} className="flex-1 border-2 border-gray-100 focus:border-orange-400 p-4 rounded-xl bg-gray-50 font-bold outline-none text-gray-700">
-                      <option value="physical">ของจริง (Physical)</option><option value="virtual">ในเกม (Virtual)</option>
-                    </select>
                     <input type="text" placeholder="Emoji ไอคอน" value={form.image} onChange={e=>setForm({...form, image: e.target.value})} className="w-24 border-2 border-gray-100 focus:border-orange-400 p-4 rounded-xl bg-gray-50 text-center text-2xl outline-none" />
                   </div>
                   <input type="number" placeholder="ใช้แต้มเท่าไหร่?" value={form.points} onChange={e=>setForm({...form, points: Number(e.target.value)})} className="w-full border-2 border-gray-100 focus:border-orange-400 p-4 rounded-xl bg-gray-50 font-black text-orange-600 outline-none" />
@@ -808,6 +826,9 @@
           );
         }
 
+        // ==========================================
+        // UI Components: User App 
+        // ==========================================
         function UserApp({ profile, missions, rewards, leaderboard, userProgress, onLogout, onUpdateProfile, db, appId, setConfirmDialog, showToast }) {
           const [activeTab, setActiveTab] = useState('home');
           const [showRewardsModal, setShowRewardsModal] = useState(false);
@@ -1451,10 +1472,7 @@
         }
 
         function RewardsModal({ onClose, points, rewards, onRedeem }) {
-          const [tab, setTab] = useState('virtual');
-          const virtualRewards = rewards.filter(r => r.type === 'virtual');
-          const physicalRewards = rewards.filter(r => r.type === 'physical');
-
+          // ในส่วนนี้เราจะแสดงของรางวัลทั้งหมดโดยไม่มีแบ่งแท็บแล้ว
           return (
             <div className="absolute inset-0 bg-[#F4F5F7] z-50 flex flex-col animate-slide-up">
               <div className="pt-12 pb-4 px-6 bg-white/95 backdrop-blur-md border-b border-gray-100 flex items-center shadow-sm">
@@ -1471,23 +1489,18 @@
                 </div>
               </div>
 
-              <div className="flex mx-6 bg-white rounded-2xl p-1.5 mb-6 shadow-sm border border-gray-100">
-                <button onClick={() => setTab('virtual')} className={`flex-1 py-3 text-sm font-black rounded-xl transition-all ${tab === 'virtual' ? 'bg-[#FF7A00] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>ในเกม (Virtual)</button>
-                <button onClick={() => setTab('physical')} className={`flex-1 py-3 text-sm font-black rounded-xl transition-all ${tab === 'physical' ? 'bg-[#FF7A00] text-white shadow-md' : 'text-gray-400 hover:bg-gray-50'}`}>ของจริง (Physical)</button>
-              </div>
-
               <div className="flex-1 overflow-y-auto px-6 pb-10 grid grid-cols-2 gap-4 place-content-start">
-                {(tab === 'virtual' ? virtualRewards : physicalRewards).map(r => (
+                {rewards.map(r => (
                    <div key={r.id} className="bg-white border border-gray-100 rounded-[2rem] p-4 shadow-sm flex flex-col items-center text-center hover:shadow-md transition">
-                     <div className={`w-full aspect-square ${tab === 'virtual' ? 'bg-gradient-to-br from-blue-50 to-indigo-50' : 'bg-gradient-to-br from-orange-50 to-red-50'} rounded-[1.5rem] flex items-center justify-center text-6xl mb-4 shadow-inner border border-white`}>{r.image}</div>
+                     <div className={`w-full aspect-square bg-gradient-to-br from-orange-50 to-red-50 rounded-[1.5rem] flex items-center justify-center text-6xl mb-4 shadow-inner border border-white`}>{r.image}</div>
                      <h4 className="font-extrabold text-gray-800 text-sm mb-auto leading-tight">{r.title}</h4>
-                     <button onClick={() => onRedeem(r)} className={`w-full mt-4 ${tab === 'virtual' ? 'bg-gradient-to-r from-blue-400 to-indigo-500' : 'bg-gradient-to-r from-orange-400 to-red-500'} text-white font-black py-3 rounded-xl text-xs shadow-md hover:opacity-90 active:scale-95 transition`}>
+                     <button onClick={() => onRedeem(r)} className={`w-full mt-4 bg-gradient-to-r from-orange-400 to-red-500 text-white font-black py-3 rounded-xl text-xs shadow-md hover:opacity-90 active:scale-95 transition`}>
                        แลกเลย {r.points.toLocaleString()}
                      </button>
                    </div>
                 ))}
-                {(tab === 'virtual' ? virtualRewards : physicalRewards).length === 0 && (
-                  <div className="col-span-2 text-center text-gray-400 font-bold py-10 bg-white rounded-3xl border border-dashed border-gray-200">ยังไม่มีของรางวัลในหมวดนี้</div>
+                {rewards.length === 0 && (
+                  <div className="col-span-2 text-center text-gray-400 font-bold py-10 bg-white rounded-3xl border border-dashed border-gray-200">ยังไม่มีของรางวัล</div>
                 )}
               </div>
             </div>
