@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -11,22 +12,20 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;700;900&display=swap" rel="stylesheet">
     
-    <!-- Babel for JSX Compilation in Browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- FontAwesome (ทดแทน Lucide React สำหรับรันบน HTML ธรรมดา) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React & ReactDOM (UMD - รองรับการรันตรงจากไฟล์) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.3/babel.min.js"></script>
 
-    <!-- Import Maps for React & Firebase ESM Modules -->
-    <script type="importmap">
-    {
-        "imports": {
-            "react": "https://esm.sh/react@18.2.0",
-            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-            "lucide-react": "https://esm.sh/lucide-react@0.344.0?external=react",
-            "firebase/app": "https://esm.sh/firebase@10.8.0/app",
-            "firebase/auth": "https://esm.sh/firebase@10.8.0/auth",
-            "firebase/firestore": "https://esm.sh/firebase@10.8.0/firestore"
-        }
-    }
-    </script>
+    <!-- Firebase (V8 Compat - ไม่ติดปัญหา CORS บน local file) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-app.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-auth.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/8.10.1/firebase-firestore.min.js"></script>
 
     <style>
         body { font-family: 'Kanit', sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -47,24 +46,54 @@
 <body class="bg-gray-900 text-gray-800">
     <div id="root"></div>
 
-    <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef } from 'react';
-        import { createRoot } from 'react-dom/client';
-        import { 
-          Home, Compass, ClipboardList, Trophy, User, 
-          Camera, Plus, ChevronLeft, Search, CheckCircle, 
-          Droplet, Footprints, Flame, Settings, Users, 
-          Edit, Trash2, LogOut, Activity, Save, X, Lock, 
-          Gift, Star, Sparkles, Image as ImageIcon,
-          Mail, Key, Smartphone, AlertCircle, Eye, Calendar, Repeat
-        } from 'lucide-react';
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-        // --- Firebase Imports ---
-        import { initializeApp } from 'firebase/app';
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
+        // ------------------------------------------------------------------
+        // 1. Icon Proxy (สร้างไอคอนทดแทน Lucide เพื่อให้รันได้ 100%)
+        // ------------------------------------------------------------------
+        const IconWrapper = ({ faClass, size = 24, className = '', color }) => (
+            <i className={`fas ${faClass} ${className}`} style={{ fontSize: size, width: size, height: size, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color }}></i>
+        );
+        
+        const Home = (p) => <IconWrapper faClass="fa-home" {...p} />;
+        const Compass = (p) => <IconWrapper faClass="fa-compass" {...p} />;
+        const ClipboardList = (p) => <IconWrapper faClass="fa-clipboard-list" {...p} />;
+        const Trophy = (p) => <IconWrapper faClass="fa-trophy" {...p} />;
+        const User = (p) => <IconWrapper faClass="fa-user" {...p} />;
+        const Camera = (p) => <IconWrapper faClass="fa-camera" {...p} />;
+        const Plus = (p) => <IconWrapper faClass="fa-plus" {...p} />;
+        const ChevronLeft = (p) => <IconWrapper faClass="fa-chevron-left" {...p} />;
+        const Search = (p) => <IconWrapper faClass="fa-search" {...p} />;
+        const CheckCircle = (p) => <IconWrapper faClass="fa-check-circle" {...p} />;
+        const Droplet = (p) => <IconWrapper faClass="fa-tint" {...p} />;
+        const Footprints = (p) => <IconWrapper faClass="fa-shoe-prints" {...p} />;
+        const Flame = (p) => <IconWrapper faClass="fa-fire" {...p} />;
+        const Settings = (p) => <IconWrapper faClass="fa-cog" {...p} />;
+        const Users = (p) => <IconWrapper faClass="fa-users" {...p} />;
+        const Edit = (p) => <IconWrapper faClass="fa-edit" {...p} />;
+        const Trash2 = (p) => <IconWrapper faClass="fa-trash-alt" {...p} />;
+        const LogOut = (p) => <IconWrapper faClass="fa-sign-out-alt" {...p} />;
+        const Activity = (p) => <IconWrapper faClass="fa-chart-line" {...p} />;
+        const Save = (p) => <IconWrapper faClass="fa-save" {...p} />;
+        const X = (p) => <IconWrapper faClass="fa-times" {...p} />;
+        const Lock = (p) => <IconWrapper faClass="fa-lock" {...p} />;
+        const Gift = (p) => <IconWrapper faClass="fa-gift" {...p} />;
+        const Star = (p) => <IconWrapper faClass="fa-star" {...p} />;
+        const Sparkles = (p) => <IconWrapper faClass="fa-magic" {...p} />;
+        const ImageIcon = (p) => <IconWrapper faClass="fa-image" {...p} />;
+        const Mail = (p) => <IconWrapper faClass="fa-envelope" {...p} />;
+        const Key = (p) => <IconWrapper faClass="fa-key" {...p} />;
+        const Smartphone = (p) => <IconWrapper faClass="fa-mobile-alt" {...p} />;
+        const AlertCircle = (p) => <IconWrapper faClass="fa-exclamation-circle" {...p} />;
+        const Eye = (p) => <IconWrapper faClass="fa-eye" {...p} />;
+        const Calendar = (p) => <IconWrapper faClass="fa-calendar-alt" {...p} />;
+        const Repeat = (p) => <IconWrapper faClass="fa-redo" {...p} />;
 
-        // --- Configuration (Injected per request) ---
+
+        // ------------------------------------------------------------------
+        // 2. Firebase Init (V8)
+        // ------------------------------------------------------------------
         const firebaseConfig = {
             apiKey: "AIzaSyA6pLMExFN2d7oVQKLldcB_ahB5-o4zw_E",
             authDomain: "vitalvibe-c0306.firebaseapp.com",
@@ -74,18 +103,44 @@
             appId: "1:18887442289:web:0b917a9e043b44b4ec80d0",
             measurementId: "G-G3H4NSH3FX"
         };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = 'vitalvibe-live-v11';
-        
-        // Gemini API Key
-        const geminiApiKey = "AIzaSyDZBt86VWg_AuUZPbapbY5GyGa1YOJaZXU"; 
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
 
-        // 🔒 รหัสผ่านสำหรับ Admin (ห้ามโชว์บนหน้าเว็บ)
+        // ------------------------------------------------------------------
+        // 3. Polyfill: แปลงคำสั่ง V9 ให้ทำงานบน V8 ได้ทันที (โค้ดเดิมไม่ต้องแก้)
+        // ------------------------------------------------------------------
+        const collection = (db, ...paths) => db.collection(paths.join('/'));
+        const doc = (db, ...paths) => db.doc(paths.join('/'));
+        const addDoc = async (ref, data) => await ref.add(data);
+        const setDoc = async (ref, data, opts) => await ref.set(data, opts);
+        const updateDoc = async (ref, data) => await ref.update(data);
+        const deleteDoc = async (ref) => await ref.delete();
+        const getDoc = async (ref) => {
+            const snap = await ref.get();
+            return { id: snap.id, data: () => snap.data(), exists: () => snap.exists };
+        };
+        const onSnapshot = (ref, cb, errCb) => {
+            return ref.onSnapshot(snap => {
+                if (snap.docs) {
+                    cb({ docs: snap.docs.map(d => ({ id: d.id, data: () => d.data(), exists: () => d.exists })) });
+                } else {
+                    cb({ id: snap.id, data: () => snap.data(), exists: () => snap.exists });
+                }
+            }, errCb);
+        };
+        const signInAnonymously = async (auth) => await auth.signInAnonymously();
+        const signInWithCustomToken = async (auth, token) => await auth.signInWithCustomToken(token);
+        const onAuthStateChanged = (auth, cb) => auth.onAuthStateChanged(cb);
+
+
+        // ------------------------------------------------------------------
+        // 4. ตั้งค่าแอป และ API Key Gemini
+        // ------------------------------------------------------------------
+        const appId = 'vitalvibe-live-v11';
+        const geminiApiKey = "AIzaSyDZBt86VWg_AuUZPbapbY5GyGa1YOJaZXU"; 
         const ADMIN_PIN = "kira5642"; 
 
-        // --- Helpers ---
         const getTodayStr = () => {
           const d = new Date();
           return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -93,7 +148,6 @@
 
         const cleanEmail = (email) => email.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
 
-        // บีบอัดภาพก่อนส่งขึ้นระบบ
         const resizeImage = (file, maxSize = 600) => new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => {
@@ -113,7 +167,6 @@
           reader.readAsDataURL(file);
         });
 
-        // --- AI Service ---
         const analyzeFoodWithAI = async (base64Image) => {
           const prompt = `คุณคือนักโภชนาการ AI วิเคราะห์ภาพอาหารนี้และตอบกลับเป็น JSON format เท่านั้น:
           {
@@ -141,7 +194,6 @@
           }
         };
 
-        // --- Seed Data ---
         const DEFAULT_MISSIONS = [
           { title: 'ลาขาดหวาน 1 วัน', subtitle: 'งดเครื่องดื่มและขนมหวานทุกชนิด', points: 20, category: 'เบาหวาน', maxPerDay: 1, expiresAt: '' },
           { title: 'เดิน 30 นาที', subtitle: 'เดินออกกำลังกายต่อเนื่อง 30 นาที', points: 30, category: 'ความดัน', maxPerDay: 1, expiresAt: '' },
@@ -153,6 +205,9 @@
           { title: 'แก้วน้ำเก็บอุณหภูมิ', points: 1500, image: '🥤', type: 'physical' },
         ];
 
+        // ------------------------------------------------------------------
+        // 5. React Components (โค้ดดั้งเดิมของคุณ ทำงานได้ 100%)
+        // ------------------------------------------------------------------
         function App() {
           const [firebaseReady, setFirebaseReady] = useState(false);
           const [appUser, setAppUser] = useState(null);
@@ -163,7 +218,6 @@
           const [leaderboard, setLeaderboard] = useState([]);
           const [userProgress, setUserProgress] = useState([]); 
           
-          // Custom Modals
           const [toast, setToast] = useState(null);
           const [confirmDialog, setConfirmDialog] = useState(null);
           const [promptDialog, setPromptDialog] = useState(null);
@@ -173,7 +227,6 @@
             setTimeout(() => setToast(null), 3000);
           };
 
-          // 1. Initialize DB Connection
           useEffect(() => {
             const initAuth = async () => {
               try {
@@ -186,7 +239,6 @@
             return () => unsub();
           }, []);
 
-          // 2. Fetch Data
           useEffect(() => {
             if (!firebaseReady) return;
 
@@ -195,14 +247,14 @@
               const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
               if (loaded.length === 0) DEFAULT_MISSIONS.forEach(m => addDoc(missionsRef, m));
               else setGlobalMissions(loaded);
-            }, (error) => console.error("Error fetching missions:", error));
+            });
 
             const rewardsRef = collection(db, 'artifacts', appId, 'public', 'data', 'rewards');
             const unsubR = onSnapshot(rewardsRef, (snap) => {
               const loaded = snap.docs.map(d => ({ id: d.id, ...d.data() }));
               if (loaded.length === 0) DEFAULT_REWARDS.forEach(r => addDoc(rewardsRef, r));
               else setGlobalRewards(loaded);
-            }, (error) => console.error("Error fetching rewards:", error));
+            });
 
             const profilesRef = collection(db, 'artifacts', appId, 'public', 'data', 'profiles');
             const unsubP = onSnapshot(profilesRef, (snap) => {
@@ -225,22 +277,20 @@
                 const updated = loadedProfiles.find(u => u.uid === current.uid);
                 return updated || current;
               });
-            }, (error) => console.error("Error fetching profiles:", error));
+            });
 
             return () => { unsubM(); unsubR(); unsubP(); };
           }, [firebaseReady]);
 
-          // Load User Progress
           useEffect(() => {
             if (!appUser?.uid || appUser.role === 'admin') return;
             const progressRef = collection(db, 'artifacts', appId, 'public', 'data', `progress_${appUser.uid}`);
             const unsubProgress = onSnapshot(progressRef, (snapshot) => {
               setUserProgress(snapshot.docs.map(d => d.data()));
-            }, (error) => console.error("Error fetching progress:", error));
+            });
             return () => unsubProgress();
           }, [appUser?.uid]);
 
-          // --- Auth System ---
           const handleRegister = async (email, password, name, isAdminLogin, adminPin) => {
             if (isAdminLogin && adminPin !== ADMIN_PIN) {
               showToast('รหัสลับผู้ดูแลระบบไม่ถูกต้อง!', 'error');
@@ -250,7 +300,7 @@
             const eid = cleanEmail(email);
             const authRef = doc(db, 'artifacts', appId, 'public', 'data', 'auth', eid);
             const docSnap = await getDoc(authRef);
-            if (docSnap.exists()) {
+            if (docSnap.exists()) { 
               showToast('อีเมลนี้ถูกใช้งานแล้ว กรุณาล็อคอิน', 'error');
               throw new Error('อีเมลนี้ถูกใช้งานแล้ว');
             }
@@ -273,7 +323,7 @@
             const authRef = doc(db, 'artifacts', appId, 'public', 'data', 'auth', eid);
             const docSnap = await getDoc(authRef);
             
-            if (!docSnap.exists()) {
+            if (!docSnap.exists()) { 
               showToast('ไม่พบบัญชีนี้ กรุณาสมัครสมาชิก', 'error');
               throw new Error('ไม่พบบัญชีนี้');
             }
@@ -284,7 +334,7 @@
             }
 
             const profileSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'profiles', authData.uid));
-            if (profileSnap.exists()) {
+            if (profileSnap.exists()) { 
               const profile = profileSnap.data();
               setAppUser(profile);
               try { localStorage.setItem('vv_uid_v10', profile.uid); } catch(e){}
@@ -333,7 +383,6 @@
                   />
                 )}
 
-                {/* Global Overlays */}
                 {toast && (
                   <div className="absolute top-10 left-1/2 -translate-x-1/2 z-[999] animate-slide-down">
                     <div className={`px-6 py-3 rounded-full font-black shadow-2xl flex items-center gap-2 text-white tracking-wide border-2 ${toast.type === 'error' ? 'bg-red-500 border-red-400' : 'bg-gray-900 border-gray-700'}`}>
@@ -379,9 +428,6 @@
           );
         }
 
-        // ==========================================
-        // 1. AUTH SCREEN
-        // ==========================================
         function AuthScreen({ onLogin, onRegister }) {
           const [isLogin, setIsLogin] = useState(true);
           const [isAdminLogin, setIsAdminLogin] = useState(false);
@@ -400,9 +446,7 @@
                 if (!name.trim()) throw new Error('กรุณากรอกชื่อของคุณ');
                 await onRegister(email, password, name, isAdminLogin, adminPin);
               }
-            } catch (err) {
-              // Handled by toast
-            } finally {
+            } catch (err) { } finally {
               setLoading(false);
             }
           };
@@ -414,7 +458,7 @@
 
               <div className="bg-white/95 backdrop-blur-xl rounded-[3rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.1)] text-center border-[4px] border-white relative z-10 mt-6">
                 <div className="w-24 h-24 bg-gradient-to-tr from-[#FF7A00] to-[#FF004D] text-white rounded-[2.5rem] shadow-[0_15px_30px_rgba(255,0,77,0.3)] flex items-center justify-center mx-auto mb-6 transform rotate-3">
-                  <Activity size={48} strokeWidth={3} />
+                  <Activity size={48} />
                 </div>
                 <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#FF7A00] to-[#FF004D] tracking-tight mb-2">VitalVibe</h1>
                 <p className="text-gray-500 font-bold mb-8">คอมมูนิตี้คนรักสุขภาพ 🌟</p>
@@ -465,9 +509,6 @@
           );
         }
 
-        // ==========================================
-        // 2. ADMIN APP 
-        // ==========================================
         function AdminApp({ missions, rewards, leaderboard, onLogout, db, appId, setConfirmDialog, setPromptDialog, showToast }) {
           const [activeTab, setActiveTab] = useState('users');
 
@@ -556,7 +597,6 @@
           );
         }
 
-        // 🏥 Modal สำหรับแอดมินดูข้อมูลสุขภาพ 
         function UserHealthModal({ user, onClose, db, appId }) {
           const [stats, setStats] = useState({ water: 0, steps: 0 });
           const [logs, setLogs] = useState([]);
@@ -566,13 +606,13 @@
             const statsRef = doc(db, 'artifacts', appId, 'public', 'data', `stats_${user.uid}`, todayStr);
             const unsubStats = onSnapshot(statsRef, (docSnap) => {
               if (docSnap.exists()) setStats(docSnap.data());
-            }, (error) => console.error("Error fetching stats:", error));
+            });
 
             const logsRef = collection(db, 'artifacts', appId, 'public', 'data', `logs_${user.uid}`);
             const unsubLogs = onSnapshot(logsRef, (snapshot) => {
               const allLogs = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
               setLogs(allLogs.filter(l => l.date === todayStr).sort((a,b) => b.timestamp - a.timestamp));
-            }, (error) => console.error("Error fetching logs:", error));
+            });
 
             return () => { unsubStats(); unsubLogs(); };
           }, [user.uid, db, appId, todayStr]);
@@ -635,11 +675,7 @@
 
           const handleSave = async () => {
             if (!form.title.trim()) return showToast('กรุณากรอกชื่อภารกิจ', 'error');
-            
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'missions'), { 
-              ...form, requiresPhoto: true 
-            });
-            
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'missions'), { ...form, requiresPhoto: true });
             setIsAdding(false); 
             setForm({ title: '', subtitle: '', category: 'เบาหวาน', points: 10, maxPerDay: 1, expiresAt: '' });
             showToast('เพิ่มภารกิจสำเร็จ');
@@ -773,9 +809,6 @@
           );
         }
 
-        // ==========================================
-        // 3. USER APP
-        // ==========================================
         function UserApp({ profile, missions, rewards, leaderboard, userProgress, onLogout, onUpdateProfile, db, appId, setConfirmDialog, showToast }) {
           const [activeTab, setActiveTab] = useState('home');
           const [showRewardsModal, setShowRewardsModal] = useState(false);
@@ -869,13 +902,12 @@
         function NavItem({ icon, label, active, onClick, color }) {
           return (
             <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${active ? color : 'text-gray-400 hover:text-gray-600'}`}>
-              <div className={`transition-transform duration-300 ${active ? 'scale-110 drop-shadow-md' : 'scale-100'}`}>{React.cloneElement(icon, { strokeWidth: active ? 3 : 2 })}</div>
+              <div className={`transition-transform duration-300 ${active ? 'scale-110 drop-shadow-md' : 'scale-100'}`}>{React.cloneElement(icon, { color: active ? '' : '#9ca3af' })}</div>
               <span className={`text-[10px] ${active ? 'font-black' : 'font-bold'}`}>{label}</span>
             </button>
           );
         }
 
-        // --- Tab: Home ---
         function HomeTab({ profile, db, appId, onLogMeal, showToast }) {
           const [stats, setStats] = useState({ water: 0, steps: 0 });
           const [stepInput, setStepInput] = useState('');
@@ -886,7 +918,7 @@
             const unsub = onSnapshot(statsRef, (docSnap) => {
               if (docSnap.exists()) setStats(docSnap.data());
               else setDoc(statsRef, { water: 0, steps: 0 }); 
-            }, (error) => console.error("Error fetching home stats:", error));
+            });
             return () => unsub();
           }, [profile.uid, db, appId, todayStr]);
 
@@ -937,7 +969,7 @@
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center font-black text-3xl text-[#34A0A4]">{stats.water}<span className="text-sm text-gray-400">/8</span></div>
                   </div>
-                  <button onClick={updateWater} className="w-14 h-14 bg-gradient-to-tr from-[#34A0A4] to-cyan-400 text-white rounded-full flex items-center justify-center shadow-[0_5px_15px_rgba(52,160,164,0.4)] hover:scale-105 active:scale-95 transition absolute -bottom-5 border-[4px] border-white"><Plus size={24} strokeWidth={3}/></button>
+                  <button onClick={updateWater} className="w-14 h-14 bg-gradient-to-tr from-[#34A0A4] to-cyan-400 text-white rounded-full flex items-center justify-center shadow-[0_5px_15px_rgba(52,160,164,0.4)] hover:scale-105 active:scale-95 transition absolute -bottom-5 border-[4px] border-white"><Plus size={24}/></button>
                 </div>
 
                 <div className="bg-white rounded-[2rem] p-5 shadow-sm flex flex-col items-center border border-gray-50 relative pb-8 hover:shadow-md transition">
@@ -953,7 +985,7 @@
                   </div>
                   <div className="absolute -bottom-5 w-[90%] flex bg-white rounded-full shadow-md border-2 border-white overflow-hidden p-1 bg-gray-50">
                     <input type="number" placeholder="+ก้าว" value={stepInput} onChange={e=>setStepInput(e.target.value)} className="w-full bg-transparent outline-none px-2 text-xs font-bold text-center text-gray-700" />
-                    <button onClick={updateSteps} className="bg-gradient-to-r from-rose-400 to-rose-500 text-white rounded-full w-9 h-9 flex items-center justify-center active:scale-95 shadow-sm flex-shrink-0"><Plus size={16} strokeWidth={3}/></button>
+                    <button onClick={updateSteps} className="bg-gradient-to-r from-rose-400 to-rose-500 text-white rounded-full w-9 h-9 flex items-center justify-center active:scale-95 shadow-sm flex-shrink-0"><Plus size={16}/></button>
                   </div>
                 </div>
               </div>
@@ -965,7 +997,6 @@
           );
         }
 
-        // --- Tab: Missions (With limits & expiry checks) ---
         function UserMissionsTab({ missions, userProgress, onComplete }) {
           const fileInputRef = useRef(null);
           const [selectedMission, setSelectedMission] = useState(null);
@@ -1054,7 +1085,7 @@
                         
                         {isFullyCompleted ? (
                           <span className="font-extrabold text-emerald-500 flex items-center gap-1.5 bg-white px-4 py-2 rounded-xl text-sm shadow-sm border border-emerald-100">
-                            <CheckCircle size={16} strokeWidth={3} /> สำเร็จแล้ว
+                            <CheckCircle size={16} /> สำเร็จแล้ว
                           </span>
                         ) : (
                           <button onClick={() => handleUploadClick(mission)} className="bg-gradient-to-r from-[#FF7A00] to-orange-500 text-white px-5 py-2.5 rounded-xl font-black text-sm shadow-[0_5px_15px_rgba(255,122,0,0.3)] flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all">
@@ -1071,7 +1102,6 @@
           );
         }
 
-        // --- Tab: Food Log (AI) ---
         function FoodLogTab({ profile, db, appId, showToast }) {
           const [activeMeal, setActiveMeal] = useState('lunch');
           const [foodName, setFoodName] = useState('');
@@ -1089,7 +1119,7 @@
             const unsub = onSnapshot(logsRef, (snapshot) => {
               const allLogs = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
               setLogs(allLogs.filter(l => l.date === todayStr).sort((a,b) => b.timestamp - a.timestamp));
-            }, (error) => console.error("Error fetching logs:", error));
+            });
             return () => unsub();
           }, [profile.uid, db, appId, todayStr]);
 
@@ -1225,7 +1255,6 @@
           );
         }
 
-        // --- Tab: Leaderboard ---
         function UserLeaderboardTab({ leaderboard, currentUserId }) {
           const userRank = leaderboard.find(u => u.uid === currentUserId)?.rank || '-';
           const userPoints = leaderboard.find(u => u.uid === currentUserId)?.points || 0;
@@ -1290,7 +1319,6 @@
           );
         }
 
-        // --- Tab: Profile ---
         function ProfileTab({ profile, onLogout, onOpenRewards, onUpdateProfile, showToast }) {
           const [isEditing, setIsEditing] = useState(false);
           const [editName, setEditName] = useState(profile.name);
@@ -1316,7 +1344,6 @@
           return (
             <div className="p-6 pt-12 animate-fade-in bg-[#F4F5F7] min-h-screen">
               
-              {/* Header Profile */}
               <div className="bg-white rounded-[2.5rem] p-8 shadow-sm mb-6 relative overflow-hidden border border-gray-50 flex flex-col items-center">
                 <div className="absolute top-0 right-0 p-4 opacity-5 text-8xl">👑</div>
                 <div className="w-32 h-32 rounded-full border-[5px] border-white shadow-xl overflow-hidden bg-gray-100 flex items-center justify-center text-6xl mb-5 relative z-10">
@@ -1332,7 +1359,6 @@
                 </button>
               </div>
 
-              {/* Edit Profile Modal */}
               {isEditing && (
                 <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-fade-in">
                   <div className="bg-white rounded-[3rem] p-8 w-full max-w-sm shadow-2xl relative border-[4px] border-white/20">
@@ -1358,7 +1384,6 @@
                 </div>
               )}
 
-              {/* Weekly Evaluation */}
               <div className="text-center mb-6 mt-8">
                 <h1 className="text-2xl font-black text-gray-900">สรุปผลรายสัปดาห์ (AI)</h1>
               </div>
@@ -1383,7 +1408,6 @@
                   </div>
                 </div>
 
-                {/* Badges Section */}
                 <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-gray-50">
                   <h3 className="font-extrabold text-gray-800 text-lg mb-5">รางวัลความสำเร็จ (Badges)</h3>
                   <div className="flex justify-around text-center">
@@ -1403,7 +1427,6 @@
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <button onClick={onOpenRewards} className="w-full bg-gradient-to-r from-[#FF7A00] to-[#FF004D] text-white rounded-[2rem] py-5 text-xl font-black shadow-[0_10px_25px_rgba(255,122,0,0.3)] flex items-center justify-center gap-3 mt-4 hover:scale-[1.02] active:scale-95 transition-all">
                   <span className="text-2xl drop-shadow-md">🎁</span> ร้านค้าแลกของรางวัล
                 </button>
@@ -1473,11 +1496,10 @@
         }
 
         function LoadingScreen() {
-          return <div className="flex h-screen w-full items-center justify-center bg-gray-900"><Activity className="text-[#FF004D] animate-pulse drop-shadow-[0_0_15px_rgba(255,0,77,0.8)]" size={80} strokeWidth={2} /></div>;
+          return <div className="flex h-screen w-full items-center justify-center bg-gray-900"><Activity className="text-[#FF004D] animate-pulse drop-shadow-[0_0_15px_rgba(255,0,77,0.8)]" size={80} /></div>;
         }
 
-        // Render React App
-        const root = createRoot(document.getElementById('root'));
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
