@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -1018,7 +1019,7 @@
       return (
         <div className="h-full flex flex-col bg-[#F4F7F6]">
           <main className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
-            {!showRewardsModal && activeTab === 'home' && <HomeTab profile={profile} db={db} appId={appId} onLogMeal={() => setActiveTab('log')} showToast={showToast} />}
+            {!showRewardsModal && activeTab === 'home' && <HomeTab profile={profile} db={db} appId={appId} onLogMeal={() => setActiveTab('log')} showToast={showToast} rewards={rewards} onRedeem={redeemReward} />}
             {!showRewardsModal && activeTab === 'health' && <HealthTab profile={profile} db={db} appId={appId} showToast={showToast} />}
             {!showRewardsModal && activeTab === 'leaderboard' && <UserLeaderboardTab leaderboard={leaderboard} currentUserId={profile.uid} />}
             {!showRewardsModal && activeTab === 'missions' && <UserMissionsTab missions={missions} userProgress={userProgress} onComplete={completeMission} />}
@@ -1076,7 +1077,7 @@
     }
 
     // --- Tab: Home (Added Reminders to Top) ---
-    function HomeTab({ profile, db, appId, onLogMeal, showToast }) {
+    function HomeTab({ profile, db, appId, onLogMeal, showToast, rewards = [], onRedeem }) {
       const [stats, setStats] = useState({ water: 0, steps: 0 });
       const [stepInput, setStepInput] = useState('');
       const [reminders, setReminders] = useState([]);
@@ -1212,6 +1213,30 @@
           <button onClick={onLogMeal} className="w-full bg-gradient-to-r from-[#A67B5B] to-[#8B5A2B] text-white rounded-[2rem] py-5 mt-6 text-xl font-black shadow-[0_10px_25px_rgba(166,123,91,0.3)] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all">
             <span className="text-2xl drop-shadow-md">🥗</span> บันทึกมื้ออาหารด้วย AI
           </button>
+
+          {/* New Rewards Section in HomeTab */}
+          <div className="mt-8 pt-4 border-t border-gray-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-black text-gray-800 flex items-center gap-2"><Gift size={24} className="text-teal-500"/> แลกของรางวัล</h3>
+              <div className="bg-teal-50 text-teal-600 px-3 py-1 rounded-full text-sm font-black border border-teal-100 flex items-center gap-1">
+                🪙 {(profile.points || 0).toLocaleString()} Pts
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {rewards.map(r => (
+                 <div key={r.id} className="bg-white border border-gray-100 rounded-[2rem] p-4 shadow-sm flex flex-col items-center text-center hover:shadow-md transition">
+                   <div className={`w-full aspect-square bg-gradient-to-br from-teal-50 to-emerald-50 rounded-[1.5rem] flex items-center justify-center text-6xl mb-4 shadow-inner border border-white`}>{r.image}</div>
+                   <h4 className="font-extrabold text-gray-800 text-sm mb-auto leading-tight">{r.title}</h4>
+                   <button onClick={() => onRedeem(r)} className={`w-full mt-4 bg-gradient-to-r from-teal-400 to-emerald-500 text-white font-black py-3 rounded-xl text-xs shadow-md hover:opacity-90 active:scale-95 transition`}>
+                     แลกเลย {r.points.toLocaleString()}
+                   </button>
+                 </div>
+              ))}
+              {rewards.length === 0 && (
+                <div className="col-span-2 text-center text-gray-400 font-bold py-10 bg-white rounded-3xl border border-dashed border-gray-200">ยังไม่มีของรางวัลในระบบ</div>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
